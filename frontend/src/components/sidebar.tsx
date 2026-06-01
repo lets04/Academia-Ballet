@@ -3,12 +3,12 @@ import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 const menuItems = [
-  { id: 'dashboard', label: 'Dashboard', href: '/dashboard', icon: '📊' },
-  { id: 'students', label: 'Estudiantes', href: '/students', icon: '👥' },
-  { id: 'groups', label: 'Grupos', href: '/groups', icon: '🎭' },
-  { id: 'enrollments', label: 'Inscripciones', href: '/enrollments', icon: '📝' },
-  { id: 'payments', label: 'Pagos', href: '/payments', icon: '💰' },
-  { id: 'expenses', label: 'Egresos', href: '/expenses', icon: '💸' },
+  { id: 'dashboard', label: 'Dashboard', href: '/dashboard' },
+  { id: 'students', label: 'Estudiantes', href: '/students' },
+  { id: 'groups', label: 'Grupos', href: '/groups' },
+  { id: 'enrollments', label: 'Inscripciones', href: '/enrollments' },
+  { id: 'payments', label: 'Pagos', href: '/payments' },
+  { id: 'expenses', label: 'Egresos', href: '/expenses' },
 ];
 
 export function Sidebar() {
@@ -48,7 +48,7 @@ export function Sidebar() {
             'text-2xl font-bold',
             'text-fuchsia-600 dark:text-fuchsia-400'
           )}>
-            🎭 Ballet Admin
+            BAFOLDANZ
           </h1>
           <p className={cn(
             'text-sm mt-1',
@@ -68,15 +68,14 @@ export function Sidebar() {
               to={item.href}
               onClick={() => setIsOpen(false)}
               className={cn(
-                'w-full flex items-center gap-3 px-4 py-3 rounded-lg',
+                'w-full px-4 py-3 rounded-lg',
                 'transition-colors',
                 isActive(item.href)
                   ? 'bg-fuchsia-100 dark:bg-fuchsia-900/30 text-fuchsia-600 dark:text-fuchsia-400 font-semibold'
                   : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
               )}
             >
-              <span className="text-xl">{item.icon}</span>
-              <span>{item.label}</span>
+              {item.label}
             </Link>
           ))}
         </nav>

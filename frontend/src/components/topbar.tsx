@@ -3,7 +3,6 @@ import { useAuth } from '@/contexts/auth';
 import { useTheme } from '@/contexts/theme';
 import { useBranch } from '@/contexts/branch';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 
 export function Topbar() {
@@ -70,13 +69,14 @@ export function Topbar() {
         <button
           onClick={toggleTheme}
           className={cn(
-            'p-2 rounded-lg transition-colors',
+            'px-3 py-2 rounded-lg transition-colors',
             'hover:bg-slate-100 dark:hover:bg-slate-700',
-            'text-slate-600 dark:text-slate-300'
+            'text-slate-600 dark:text-slate-300',
+            'border border-slate-200 dark:border-slate-700'
           )}
           title={theme === 'dark' ? 'Modo día' : 'Modo noche'}
         >
-          {theme === 'dark' ? '☀️' : '🌙'}
+          {theme === 'dark' ? 'Modo día' : 'Modo noche'}
         </button>
 
         {/* User menu */}
@@ -84,12 +84,13 @@ export function Topbar() {
           <button
             onClick={() => setShowUserMenu(!showUserMenu)}
             className={cn(
-              'p-2 rounded-lg transition-colors',
+              'px-3 py-2 rounded-lg transition-colors',
               'hover:bg-slate-100 dark:hover:bg-slate-700',
-              'text-slate-600 dark:text-slate-300'
+              'text-slate-600 dark:text-slate-300',
+              'border border-slate-200 dark:border-slate-700'
             )}
           >
-            👤
+            Cuenta
           </button>
 
           {showUserMenu && (

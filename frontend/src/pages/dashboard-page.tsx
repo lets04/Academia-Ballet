@@ -65,28 +65,25 @@ export function DashboardPage() {
     loadStats();
   }, [selectedBranchId]);
 
-  const StatCard = ({ title, value, icon, color }: { title: string; value: string | number; icon: string; color: string }) => (
+  const StatCard = ({ title, value, color }: { title: string; value: string | number; color: string }) => (
     <div className={cn(
-      'rounded-lg p-6 shadow-md transition-all hover:shadow-lg',
+      'rounded-3xl p-6 shadow-lg transition-all hover:shadow-xl',
       'bg-white dark:bg-slate-800',
       'border border-slate-200 dark:border-slate-700'
     )}>
-      <div className="flex items-start justify-between">
-        <div>
-          <p className={cn(
-            'text-sm font-medium mb-2',
-            'text-slate-600 dark:text-slate-400'
-          )}>
-            {title}
-          </p>
-          <p className={cn(
-            'text-3xl font-bold',
-            color
-          )}>
-            {isLoading ? '...' : value}
-          </p>
-        </div>
-        <div className="text-3xl">{icon}</div>
+      <div>
+        <p className={cn(
+          'text-sm font-semibold mb-4 uppercase tracking-[0.2em]',
+          'text-slate-500 dark:text-slate-400'
+        )}>
+          {title}
+        </p>
+        <p className={cn(
+          'text-4xl font-bold leading-tight',
+          color
+        )}>
+          {isLoading ? '...' : value}
+        </p>
       </div>
     </div>
   );
@@ -113,29 +110,25 @@ export function DashboardPage() {
         <StatCard
           title="Estudiantes Activos"
           value={stats.activeStudents}
-          icon="👥"
-          color="text-blue-600 dark:text-blue-400"
+          color="text-blue-700 dark:text-blue-300"
         />
 
         <StatCard
           title="Ingresos del Mes"
           value={`Bs. ${stats.monthlyIncome.toLocaleString('es-BO', { minimumFractionDigits: 2 })}`}
-          icon="💰"
-          color="text-green-600 dark:text-green-400"
+          color="text-green-700 dark:text-green-300"
         />
 
         <StatCard
           title="Egresos del Mes"
           value={`Bs. ${stats.monthlyExpenses.toLocaleString('es-BO', { minimumFractionDigits: 2 })}`}
-          icon="💸"
-          color="text-yellow-600 dark:text-yellow-400"
+          color="text-yellow-700 dark:text-yellow-300"
         />
 
         <StatCard
           title="Deuda Pendiente"
           value={`Bs. ${stats.pendingDebt.toLocaleString('es-BO', { minimumFractionDigits: 2 })}`}
-          icon="⚠️"
-          color="text-red-600 dark:text-red-400"
+          color="text-red-700 dark:text-red-300"
         />
       </div>
 
@@ -157,42 +150,42 @@ export function DashboardPage() {
             'bg-fuchsia-100 dark:bg-fuchsia-900/20 text-fuchsia-600 dark:text-fuchsia-400',
             'hover:bg-fuchsia-200 dark:hover:bg-fuchsia-900/30'
           )}>
-            ➕ Nuevo Estudiante
+            Nuevo estudiante
           </button>
           <button className={cn(
             'px-4 py-2 rounded-lg font-semibold transition-colors',
             'bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400',
             'hover:bg-blue-200 dark:hover:bg-blue-900/30'
           )}>
-            ➕ Nuevo Grupo
+            Nuevo grupo
           </button>
           <button className={cn(
             'px-4 py-2 rounded-lg font-semibold transition-colors',
             'bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400',
             'hover:bg-green-200 dark:hover:bg-green-900/30'
           )}>
-            ➕ Registrar Pago
+            Registrar pago
           </button>
           <button className={cn(
             'px-4 py-2 rounded-lg font-semibold transition-colors',
             'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400',
             'hover:bg-yellow-200 dark:hover:bg-yellow-900/30'
           )}>
-            ➕ Registrar Egreso
+            Registrar egreso
           </button>
           <button className={cn(
             'px-4 py-2 rounded-lg font-semibold transition-colors',
             'bg-purple-100 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400',
             'hover:bg-purple-200 dark:hover:bg-purple-900/30'
           )}>
-            📊 Ver Reportes
+            Ver reportes
           </button>
           <button className={cn(
             'px-4 py-2 rounded-lg font-semibold transition-colors',
             'bg-indigo-100 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400',
             'hover:bg-indigo-200 dark:hover:bg-indigo-900/30'
           )}>
-            ⚙️ Configuración
+            Configuración
           </button>
         </div>
       </div>
@@ -200,7 +193,7 @@ export function DashboardPage() {
       {/* Info Card */}
       <div className={cn(
         'rounded-lg p-6',
-        'bg-gradient-to-r from-fuchsia-50 to-blue-50',
+        'bg-linear-to-r from-fuchsia-50 to-blue-50',
         'dark:from-fuchsia-900/20 dark:to-blue-900/20',
         'border border-fuchsia-200 dark:border-fuchsia-800'
       )}>

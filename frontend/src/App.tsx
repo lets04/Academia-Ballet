@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { DashboardLayout } from '@/layouts/dashboard-layout';
 import { DashboardPage } from '@/pages/dashboard-page';
+import { StudentsPage } from '@/pages/students-page';
 import { LoginPage } from '@/pages/login-page';
 import { ProtectedRoute } from '@/components/protected-route';
 
@@ -26,10 +27,7 @@ function App() {
           element={
             <ProtectedRoute>
               <DashboardLayout>
-                <div className="text-center py-12">
-                  <h1 className="text-2xl font-bold">Gestión de Estudiantes</h1>
-                  <p className="text-slate-500 mt-2">Próximamente...</p>
-                </div>
+                <StudentsPage />
               </DashboardLayout>
             </ProtectedRoute>
           }

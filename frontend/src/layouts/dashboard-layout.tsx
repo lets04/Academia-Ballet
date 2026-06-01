@@ -1,20 +1,26 @@
+import { Sidebar } from "@/components/sidebar";
+import { Topbar } from "@/components/topbar";
+import { cn } from "@/lib/utils";
+
 type Props = {
   children: React.ReactNode;
 };
 
 export function DashboardLayout({ children }: Props) {
   return (
-    <div className="min-h-screen bg-slate-100">
-      <div className="flex">
-        {/* Sidebar */}
-        <aside className="w-64 bg-white border-r min-h-screen p-4">
-          <h2 className="text-2xl font-bold text-pink-600">
-            BAFOLDANZ
-          </h2>
-        </aside>
+    <div className={cn(
+      'min-h-screen flex',
+      'bg-slate-50 dark:bg-slate-900'
+    )}>
+      <Sidebar />
 
-        {/* Content */}
-        <main className="flex-1 p-6">
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <Topbar />
+
+        <main className={cn(
+          'flex-1 overflow-y-auto p-4 md:p-6',
+          'bg-slate-50 dark:bg-slate-900'
+        )}>
           {children}
         </main>
       </div>

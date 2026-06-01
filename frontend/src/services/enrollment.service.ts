@@ -1,0 +1,111 @@
+import { supabase } from '@/lib/supabase';
+import type { Enrollment, CreateEnrollmentForm, TransferStudentForm } from '@/types';
+
+export const enrollmentService = {
+  async list(studentId?: string, branchId?: string): Promise<Enrollment[]> {
+    let query = supabase
+      .from('enrollments')
+      .select('*');
+
+    if (studentId) {
+      query = query.eq('student_id', studentId);
+    }
+
+    if (branchId) {
+      const { data: groups } = await supabase
+        .from('groups')
+        .select('id')
+        .eq('branch_id', branchId);
+
+      const groupIds = groups?.map(g => g.id) || [];
+      if (groupIds.length > 0) {
+        query = query.in('group_id', groupIds);
+      }
+    }
+
+    const { data, error } = await query.order('start_date', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  async getById(id: string): Promise<Enrollment | null> {
+    const { data, error } = await supabase
+      .from('enrollments')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+    return data || null;
+  },
+
+  async getActive(studentId: string): Promise<Enrollment | null> {
+    const { data, error } = await supabase
+      .from('enrollments')
+      .select('*')
+      .eq('student_id', studentId)
+      .eq('is_active', true)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+    return data || null;
+  },
+
+  async create(form: CreateEnrollmentForm): Promise<Enrollment> {
+    const startDate = new Date().toISOString().split('T')[0];
+
+    const { data, error } = await supabase
+      .from('enrollments')
+      .insert([
+        {
+          ...form,
+          is_active: true,
+          start_date: startDate,
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async update(id: string, updates: Partial<Enrollment>): Promise<Enrollment> {
+    const { data, error } = await supabase
+      .from('enrollments')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async transfer(form: TransferStudentForm): Promise<{ oldEnrollment: Enrollment; newEnrollment: Enrollment }> {
+    // Deactivate current enrollment
+    const endDate = new Date().toISOString().split('T')[0];
+    const oldEnrollment = await this.update(form.current_enrollment_id, {
+      is_active: false,
+      end_date: endDate,
+    });
+
+    // Create new enrollment
+    const newEnrollment = await this.create({
+      student_id: form.student_id,
+      group_id: form.new_group_id,
+      monthly_fee: form.new_monthly_fee,
+    });
+
+    return { oldEnrollment, newEnrollment };
+  },
+
+  async deactivate(id: string): Promise<Enrollment> {
+    const endDate = new Date().toISOString().split('T')[0];
+    return this.update(id, {
+      is_active: false,
+      end_date: endDate,
+    });
+  },
+};

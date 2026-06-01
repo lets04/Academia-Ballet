@@ -71,3 +71,19 @@ export default defineConfig([
   },
 ])
 ```
+
+
+
+# comandos para instalar 
+npm install react-router-dom
+
+npm install @supabase/supabase-js
+
+npm install @tanstack/react-query
+
+npm install react-hook-form zod @hookform/resolvers
+
+npm install lucide-react
+
+npm install -D @types/node
+

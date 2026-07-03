@@ -20,6 +20,11 @@ export interface UpdateStudentForm extends Partial<CreateStudentForm> {
   is_active?: boolean;
 }
 
+// Branch Forms
+export interface CreateBranchForm {
+  name: string;
+}
+
 // Group Forms
 export interface CreateGroupForm {
   branch_id: string;

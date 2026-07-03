@@ -108,4 +108,35 @@ export const enrollmentService = {
       end_date: endDate,
     });
   },
+
+  async getActiveCount(branchId?: string): Promise<number> {
+    if (branchId) {
+      const { data: groups, error: groupsError } = await supabase
+        .from('groups')
+        .select('id')
+        .eq('branch_id', branchId);
+
+      if (groupsError) throw groupsError;
+
+      const groupIds = groups?.map((group) => group.id) || [];
+      if (groupIds.length === 0) return 0;
+
+      const { count, error } = await supabase
+        .from('enrollments')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_active', true)
+        .in('group_id', groupIds);
+
+      if (error) throw error;
+      return count || 0;
+    }
+
+    const { count, error } = await supabase
+      .from('enrollments')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_active', true);
+
+    if (error) throw error;
+    return count || 0;
+  },
 };

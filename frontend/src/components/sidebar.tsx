@@ -1,14 +1,29 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import {
+  ClipboardList,
+  CreditCard,
+  Home,
+  Layers,
+  MapPin,
+  Menu,
+  Receipt,
+  Users,
+  X,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const menuItems = [
-  { id: 'dashboard', label: 'Dashboard', href: '/dashboard' },
-  { id: 'students', label: 'Estudiantes', href: '/students' },
-  { id: 'groups', label: 'Grupos', href: '/groups' },
-  { id: 'enrollments', label: 'Inscripciones', href: '/enrollments' },
-  { id: 'payments', label: 'Pagos', href: '/payments' },
-  { id: 'expenses', label: 'Egresos', href: '/expenses' },
+  { id: 'dashboard', label: 'Dashboard', href: '/dashboard', icon: Home },
+  { id: 'students', label: 'Estudiantes', href: '/students', icon: Users },
+  { id: 'groups', label: 'Grupos', href: '/groups', icon: Layers },
+  { id: 'enrollments', label: 'Inscripciones', href: '/enrollments', icon: ClipboardList },
+  { id: 'payments', label: 'Pagos', href: '/payments', icon: CreditCard },
+  { id: 'expenses', label: 'Egresos', href: '/expenses', icon: Receipt },
+];
+
+const configItems = [
+  { id: 'branches', label: 'Sucursales', href: '/branches', icon: MapPin },
 ];
 
 export function Sidebar() {
@@ -28,8 +43,9 @@ export function Sidebar() {
           'bg-fuchsia-600 hover:bg-fuchsia-700 dark:bg-fuchsia-600 dark:hover:bg-fuchsia-700',
           'text-white'
         )}
+        aria-label={isOpen ? 'Cerrar menú' : 'Abrir menú'}
       >
-        {isOpen ? '✕' : '☰'}
+        {isOpen ? <X size={20} /> : <Menu size={20} />}
       </button>
 
       {/* Sidebar */}
@@ -62,22 +78,59 @@ export function Sidebar() {
         <nav className={cn(
           'flex-1 overflow-y-auto px-3 py-4 space-y-1'
         )}>
-          {menuItems.map((item) => (
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+
+            return (
             <Link
               key={item.id}
               to={item.href}
               onClick={() => setIsOpen(false)}
               className={cn(
-                'w-full px-4 py-3 rounded-lg',
+                'flex w-full items-center gap-3 px-4 py-3 rounded-lg',
                 'transition-colors',
                 isActive(item.href)
                   ? 'bg-fuchsia-100 dark:bg-fuchsia-900/30 text-fuchsia-600 dark:text-fuchsia-400 font-semibold'
                   : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
               )}
             >
+              <Icon size={19} strokeWidth={1.9} />
+              <span>
               {item.label}
+              </span>
             </Link>
-          ))}
+            );
+          })}
+
+          <div className="pt-4 pb-2">
+            <p className="px-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
+              Configuración
+            </p>
+          </div>
+
+          {configItems.map((item) => {
+            const Icon = item.icon;
+
+            return (
+            <Link
+              key={item.id}
+              to={item.href}
+              onClick={() => setIsOpen(false)}
+              className={cn(
+                'flex w-full items-center gap-3 px-4 py-3 rounded-lg',
+                'transition-colors',
+                isActive(item.href)
+                  ? 'bg-fuchsia-100 dark:bg-fuchsia-900/30 text-fuchsia-600 dark:text-fuchsia-400 font-semibold'
+                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+              )}
+            >
+              <Icon size={19} strokeWidth={1.9} />
+              <span>
+              {item.label}
+              </span>
+            </Link>
+            );
+          })}
         </nav>
 
         {/* Footer */}

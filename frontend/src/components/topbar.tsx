@@ -4,6 +4,7 @@ import { useTheme } from '@/contexts/theme';
 import { useBranch } from '@/contexts/branch';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
+import { LogOut, Moon, Sun, UserRound } from 'lucide-react';
 
 export function Topbar() {
   const { user, logout } = useAuth();
@@ -69,14 +70,16 @@ export function Topbar() {
         <button
           onClick={toggleTheme}
           className={cn(
-            'px-3 py-2 rounded-lg transition-colors',
+            'inline-flex items-center gap-2 px-3 py-2 rounded-lg transition-colors',
             'hover:bg-slate-100 dark:hover:bg-slate-700',
             'text-slate-600 dark:text-slate-300',
             'border border-slate-200 dark:border-slate-700'
           )}
           title={theme === 'dark' ? 'Modo día' : 'Modo noche'}
+          aria-label={theme === 'dark' ? 'Cambiar a modo día' : 'Cambiar a modo noche'}
         >
-          {theme === 'dark' ? 'Modo día' : 'Modo noche'}
+          {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          <span className="hidden sm:inline">{theme === 'dark' ? 'Día' : 'Noche'}</span>
         </button>
 
         {/* User menu */}
@@ -84,13 +87,14 @@ export function Topbar() {
           <button
             onClick={() => setShowUserMenu(!showUserMenu)}
             className={cn(
-              'px-3 py-2 rounded-lg transition-colors',
+              'inline-flex items-center gap-2 px-3 py-2 rounded-lg transition-colors',
               'hover:bg-slate-100 dark:hover:bg-slate-700',
               'text-slate-600 dark:text-slate-300',
               'border border-slate-200 dark:border-slate-700'
             )}
           >
-            Cuenta
+            <UserRound size={18} />
+            <span className="hidden sm:inline">Cuenta</span>
           </button>
 
           {showUserMenu && (
@@ -120,12 +124,13 @@ export function Topbar() {
                   setShowUserMenu(false);
                 }}
                 className={cn(
-                  'w-full text-left px-4 py-2 text-sm',
+                  'flex w-full items-center gap-2 px-4 py-2 text-left text-sm',
                   'text-red-600 dark:text-red-400',
                   'hover:bg-red-50 dark:hover:bg-red-900/20',
                   'transition-colors'
                 )}
               >
+                <LogOut size={16} />
                 Cerrar Sesión
               </button>
             </div>

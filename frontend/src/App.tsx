@@ -2,6 +2,11 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { DashboardLayout } from '@/layouts/dashboard-layout';
 import { DashboardPage } from '@/pages/dashboard-page';
 import { StudentsPage } from '@/pages/students-page';
+import { GroupsPage } from '@/pages/groups-page';
+import { PaymentsPage } from '@/pages/payments-page';
+import { ExpensesPage } from '@/pages/expenses-page';
+import { EnrollmentsPage } from '@/pages/enrollments-page';
+import { BranchesPage } from '@/pages/branches-page';
 import { LoginPage } from '@/pages/login-page';
 import { ProtectedRoute } from '@/components/protected-route';
 
@@ -38,10 +43,7 @@ function App() {
           element={
             <ProtectedRoute>
               <DashboardLayout>
-                <div className="text-center py-12">
-                  <h1 className="text-2xl font-bold">Gestión de Grupos</h1>
-                  <p className="text-slate-500 mt-2">Próximamente...</p>
-                </div>
+                <GroupsPage />
               </DashboardLayout>
             </ProtectedRoute>
           }
@@ -52,10 +54,7 @@ function App() {
           element={
             <ProtectedRoute>
               <DashboardLayout>
-                <div className="text-center py-12">
-                  <h1 className="text-2xl font-bold">Gestión de Inscripciones</h1>
-                  <p className="text-slate-500 mt-2">Próximamente...</p>
-                </div>
+                <EnrollmentsPage />
               </DashboardLayout>
             </ProtectedRoute>
           }
@@ -66,10 +65,7 @@ function App() {
           element={
             <ProtectedRoute>
               <DashboardLayout>
-                <div className="text-center py-12">
-                  <h1 className="text-2xl font-bold">Gestión de Pagos</h1>
-                  <p className="text-slate-500 mt-2">Próximamente...</p>
-                </div>
+                <PaymentsPage />
               </DashboardLayout>
             </ProtectedRoute>
           }
@@ -80,10 +76,18 @@ function App() {
           element={
             <ProtectedRoute>
               <DashboardLayout>
-                <div className="text-center py-12">
-                  <h1 className="text-2xl font-bold">Gestión de Egresos</h1>
-                  <p className="text-slate-500 mt-2">Próximamente...</p>
-                </div>
+                <ExpensesPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/branches"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <BranchesPage />
               </DashboardLayout>
             </ProtectedRoute>
           }

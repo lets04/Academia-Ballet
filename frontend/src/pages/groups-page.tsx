@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Building2, Calendar, Layers, Pencil, Plus, Search, Trash2, Users } from 'lucide-react';
+import { Building2, Calendar, Clock, Layers, Pencil, Plus, Search, Trash2, Users } from 'lucide-react';
 import { useBranch } from '@/contexts/branch';
 import { SchedulePicker } from '@/components/schedule-picker';
 import { Modal } from '@/components/ui/modal';
@@ -228,7 +228,7 @@ export function GroupsPage() {
           </div>
         )}
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_420px]">
+        <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_420px] items-start">
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {isLoading ? (
               <div className="col-span-full rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
@@ -268,7 +268,35 @@ export function GroupsPage() {
                     </div>
                   </div>
                   <div className="space-y-3 text-sm text-slate-700 dark:text-slate-300">
-                    <p className="flex items-center gap-2"><Calendar size={17} />{group.schedule}</p>
+                    {(() => {
+                      const { days, time } = (() => {
+                        if (!group.schedule) return { days: '', time: '' };
+                        if (group.schedule.includes('·')) {
+                          const [d, t] = group.schedule.split('·');
+                          return { days: d.trim(), time: t.trim() };
+                        }
+                        if (group.schedule.includes(' a las ')) {
+                          const [d, t] = group.schedule.split(' a las ');
+                          return { days: d.trim(), time: `a las ${t.trim()}` };
+                        }
+                        return { days: group.schedule.trim(), time: '' };
+                      })();
+
+                      return (
+                        <>
+                          <div className="flex items-start gap-2">
+                            <Calendar size={17} className="mt-0.5 shrink-0" />
+                            <span className="font-medium text-slate-900 dark:text-slate-100">{days}</span>
+                          </div>
+                          {time && (
+                            <div className="flex items-center gap-2">
+                              <Clock size={17} className="shrink-0" />
+                              <span>{time}</span>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                     <p className="flex items-center gap-2"><Users size={17} />{studentCounts[group.id] || 0} estudiantes</p>
                   </div>
                 </article>

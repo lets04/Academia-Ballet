@@ -52,7 +52,23 @@ export const enrollmentService = {
     return data || null;
   },
 
+  async getActiveStudentIds(): Promise<string[]> {
+    const { data, error } = await supabase
+      .from('enrollments')
+      .select('student_id')
+      .eq('is_active', true);
+
+    if (error) throw error;
+    return data?.map((e) => e.student_id) || [];
+  },
+
   async create(form: CreateEnrollmentForm): Promise<Enrollment> {
+    // Check if student already has an active enrollment
+    const active = await this.getActive(form.student_id);
+    if (active) {
+      throw new Error('El estudiante ya cuenta con una inscripción activa en otra sucursal o grupo.');
+    }
+
     const startDate = new Date().toISOString().split('T')[0];
 
     const { data, error } = await supabase

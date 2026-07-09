@@ -30,6 +30,7 @@ export function EnrollmentsPage() {
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [allGroups, setAllGroups] = useState<Group[]>([]);
+  const [activeStudentIds, setActiveStudentIds] = useState<Set<string>>(new Set());
   const [formData, setFormData] = useState<CreateEnrollmentForm>(initialForm);
   const [formBranchId, setFormBranchId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -59,15 +60,17 @@ export function EnrollmentsPage() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [studentsData, groupsData, enrollmentsData] = await Promise.all([
+      const [studentsData, groupsData, enrollmentsData, activeIds] = await Promise.all([
         studentService.list(true),
         groupService.list(),
         enrollmentService.list(undefined, selectedBranchId || undefined),
+        enrollmentService.getActiveStudentIds(),
       ]);
 
       setStudents(studentsData);
       setAllGroups(groupsData);
       setEnrollments(enrollmentsData);
+      setActiveStudentIds(new Set(activeIds));
     } catch (error) {
       console.error('Error loading enrollments:', error);
       setMessage('No se pudieron cargar las inscripciones.');
@@ -94,6 +97,12 @@ export function EnrollmentsPage() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (activeStudentIds.has(formData.student_id)) {
+      setMessage('El estudiante ya cuenta con una inscripción activa en otra sucursal o grupo.');
+      return;
+    }
+
     setIsLoading(true);
     try {
       await enrollmentService.create({
@@ -103,13 +112,14 @@ export function EnrollmentsPage() {
       setFormData({ ...initialForm, group_id: groupsForBranch[0]?.id || '' });
       setMessage('Inscripción registrada correctamente.');
       await loadData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating enrollment:', error);
-      setMessage('No se pudo registrar la inscripción. Revisa los datos e intenta nuevamente.');
+      setMessage(error.message || 'No se pudo registrar la inscripción. Revisa los datos e intenta nuevamente.');
     } finally {
       setIsLoading(false);
     }
   };
+
 
   const filteredEnrollments = enrollments.filter((enrollment) => {
     const student = studentById[enrollment.student_id];
@@ -260,9 +270,14 @@ export function EnrollmentsPage() {
                     className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2 pl-10 pr-3 text-slate-900 outline-none focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                   >
                     <option value="">Selecciona un estudiante</option>
-                    {students.map((student) => (
-                      <option key={student.id} value={student.id}>{student.full_name}</option>
-                    ))}
+                    {students.map((student) => {
+                      const isEnrolled = activeStudentIds.has(student.id);
+                      return (
+                        <option key={student.id} value={student.id} disabled={isEnrolled}>
+                          {student.full_name} {isEnrolled ? '— ya inscrito' : ''}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               </label>

@@ -123,7 +123,7 @@ export function BranchesPage() {
           </div>
         )}
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_380px]">
+        <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_380px] items-start">
           <section className="grid gap-4 sm:grid-cols-2">
             {filteredBranches.length === 0 ? (
               <div className="col-span-full rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">

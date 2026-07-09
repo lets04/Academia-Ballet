@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { Student, CreateStudentForm } from '@/types';
 import { studentService } from '@/services/students.service';
+import { Modal } from '@/components/ui/modal';
+import { UserRound } from 'lucide-react';
 
 const initialFormState: CreateStudentForm = {
   full_name: '',
@@ -18,6 +20,7 @@ export function StudentsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 
   const loadStudents = async () => {
     setIsLoading(true);
@@ -118,7 +121,14 @@ export function StudentsPage() {
                   ) : (
                     filteredStudents.map((student) => (
                       <tr key={student.id} className="border-t border-slate-200 dark:border-slate-700">
-                        <td className="px-4 py-4 text-slate-900 dark:text-slate-100">{student.full_name}</td>
+                        <td className="px-4 py-4">
+                          <button
+                            onClick={() => setSelectedStudent(student)}
+                            className="font-semibold text-fuchsia-600 dark:text-fuchsia-400 hover:underline hover:text-fuchsia-700 dark:hover:text-fuchsia-300 text-left transition focus:outline-none"
+                          >
+                            {student.full_name}
+                          </button>
+                        </td>
                         <td className="px-4 py-4 text-slate-700 dark:text-slate-300">{student.document_number || '-'}</td>
                         <td className="px-4 py-4 text-slate-700 dark:text-slate-300">{student.phone || '-'}</td>
                         <td className="px-4 py-4">
@@ -229,6 +239,100 @@ export function StudentsPage() {
           </section>
         </div>
       </div>
+
+      {selectedStudent && (
+        <Modal
+          isOpen={!!selectedStudent}
+          onClose={() => setSelectedStudent(null)}
+          title="Detalle del Estudiante"
+          footer={
+            <button
+              onClick={() => setSelectedStudent(null)}
+              className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition"
+            >
+              Cerrar
+            </button>
+          }
+        >
+          <div className="space-y-6">
+            {/* Header info */}
+            <div className="flex items-center gap-4 p-4 rounded-2xl bg-fuchsia-50 dark:bg-fuchsia-950/20 border border-fuchsia-100 dark:border-fuchsia-900/30">
+              <div className="p-3 rounded-full bg-fuchsia-100 dark:bg-fuchsia-900/40 text-fuchsia-600 dark:text-fuchsia-400">
+                <UserRound size={24} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white truncate" title={selectedStudent.full_name}>
+                  {selectedStudent.full_name}
+                </h3>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200 mt-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  {selectedStudent.is_active ? 'Activo' : 'Inactivo'}
+                </span>
+              </div>
+            </div>
+
+            {/* Grid */}
+            <div className="grid gap-6 sm:grid-cols-2">
+              {/* Student Details */}
+              <div className="space-y-4 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 p-4">
+                <h4 className="font-semibold text-slate-900 dark:text-slate-100 border-b border-slate-200/60 dark:border-slate-700/60 pb-2">
+                  Datos del Alumno
+                </h4>
+                <div className="space-y-3 text-sm">
+                  <div>
+                    <span className="block text-xs text-slate-500 dark:text-slate-400 font-medium">Documento</span>
+                    <span className="text-slate-900 dark:text-slate-200 font-medium">{selectedStudent.document_number || 'No registrado'}</span>
+                  </div>
+                  <div>
+                    <span className="block text-xs text-slate-500 dark:text-slate-400 font-medium">Teléfono</span>
+                    <span className="text-slate-900 dark:text-slate-200 font-medium">{selectedStudent.phone || 'No registrado'}</span>
+                  </div>
+                  <div>
+                    <span className="block text-xs text-slate-500 dark:text-slate-400 font-medium">Fecha de Nacimiento</span>
+                    <span className="text-slate-900 dark:text-slate-200 font-medium">
+                      {selectedStudent.birth_date
+                        ? new Date(selectedStudent.birth_date).toLocaleDateString('es-ES', {
+                            timeZone: 'UTC',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                          })
+                        : 'No registrada'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Guardian/Responsible Details */}
+              <div className="space-y-4 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 p-4">
+                <h4 className="font-semibold text-slate-900 dark:text-slate-100 border-b border-slate-200/60 dark:border-slate-700/60 pb-2">
+                  Datos del Responsable
+                </h4>
+                <div className="space-y-3 text-sm">
+                  <div>
+                    <span className="block text-xs text-slate-500 dark:text-slate-400 font-medium">Nombre del responsable</span>
+                    <span className="text-slate-900 dark:text-slate-200 font-medium">{selectedStudent.guardian_name || 'No registrado'}</span>
+                  </div>
+                  <div>
+                    <span className="block text-xs text-slate-500 dark:text-slate-400 font-medium">Teléfono del responsable</span>
+                    <span className="text-slate-900 dark:text-slate-200 font-medium">{selectedStudent.guardian_phone || 'No registrado'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-2 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 p-4">
+              <h4 className="font-semibold text-slate-900 dark:text-slate-100 border-b border-slate-200/60 dark:border-slate-700/60 pb-2">
+                Notas / Observaciones
+              </h4>
+              <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-line leading-relaxed">
+                {selectedStudent.notes || 'Ninguna nota registrada.'}
+              </p>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

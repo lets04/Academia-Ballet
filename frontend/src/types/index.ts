@@ -49,6 +49,7 @@ export interface Enrollment {
   group_id: string;
   monthly_fee: number;
   is_active: boolean;
+  is_scholarship?: boolean;
   start_date: string;
   end_date: string | null;
   created_at: string;

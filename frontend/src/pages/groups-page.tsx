@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Building2, Calendar, Layers, Pencil, Plus, Search, Trash2, Users } from 'lucide-react';
+import { AlertTriangle, Building2, Calendar, Clock, Layers, Pencil, Plus, Search, Trash2, UserRound, Users } from 'lucide-react';
 import { useBranch } from '@/contexts/branch';
 import { SchedulePicker } from '@/components/schedule-picker';
 import { Modal } from '@/components/ui/modal';
 import { groupService } from '@/services/group.service';
+import { enrollmentService } from '@/services/enrollment.service';
 import {
   buildScheduleLabel,
   isScheduleComplete,
@@ -40,6 +41,16 @@ export function GroupsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [groupNameError, setGroupNameError] = useState<string | null>(null);
+
+  // Detail modal state
+  const [detailGroup, setDetailGroup] = useState<Group | null>(null);
+  const [detailStudents, setDetailStudents] = useState<Array<{ enrollment: any; student: any }>>([]);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
+
+  // Confirm modal states
+  const [confirmDeleteGroupOpen, setConfirmDeleteGroupOpen] = useState(false);
+  const [groupToDelete, setGroupToDelete] = useState<Group | null>(null);
 
   const branchNameById = useMemo(
     () => Object.fromEntries(branches.map((branch) => [branch.id, branch.name])),
@@ -88,6 +99,25 @@ export function GroupsPage() {
     setEndTime(initialSchedule.endTime);
   };
 
+  const validateGroup = (): boolean => {
+    const name = formData.name.trim();
+    if (!name) {
+      setGroupNameError('El nombre del grupo es obligatorio.');
+      return false;
+    }
+    const duplicate = groups.find(
+      (g) =>
+        g.name.trim().toLowerCase() === name.toLowerCase() &&
+        g.branch_id === formData.branch_id
+    );
+    if (duplicate) {
+      setGroupNameError(`Ya existe un grupo con el nombre "${duplicate.name}" en esta sucursal.`);
+      return false;
+    }
+    setGroupNameError(null);
+    return true;
+  };
+
   const validateSchedule = (days: number[], start: string, end: string) => {
     if (!isScheduleComplete(days, start)) {
       setMessage('Selecciona al menos un día y la hora de inicio.');
@@ -102,6 +132,7 @@ export function GroupsPage() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!validateGroup()) return;
     if (!validateSchedule(scheduleDays, startTime, endTime)) return;
 
     setIsLoading(true);
@@ -112,6 +143,7 @@ export function GroupsPage() {
       });
       setFormData({ ...initialForm, branch_id: selectedBranchId || branches[0]?.id || '' });
       resetSchedule();
+      setGroupNameError(null);
       setMessage('Grupo agregado correctamente.');
       await loadGroups();
     } catch (error) {
@@ -167,19 +199,28 @@ export function GroupsPage() {
     }
   };
 
-  const handleDelete = async (group: Group) => {
+  const openDeleteGroupConfirm = (group: Group) => {
     const count = studentCounts[group.id] || 0;
     if (count > 0) {
       setMessage('No puedes eliminar un grupo con estudiantes inscritos.');
       return;
     }
+    setGroupToDelete(group);
+    setConfirmDeleteGroupOpen(true);
+  };
 
-    if (!window.confirm(`¿Eliminar el grupo "${group.name}"?`)) return;
+  const closeDeleteGroupConfirm = () => {
+    setConfirmDeleteGroupOpen(false);
+    setGroupToDelete(null);
+  };
+
+  const handleDeleteGroupConfirm = async () => {
+    if (!groupToDelete) return;
 
     setIsLoading(true);
     try {
-      await groupService.delete(group.id);
-      if (editingGroup?.id === group.id) closeEditModal();
+      await groupService.delete(groupToDelete.id);
+      if (editingGroup?.id === groupToDelete.id) closeEditModal();
       setMessage('Grupo eliminado correctamente.');
       await loadGroups();
     } catch (error) {
@@ -187,6 +228,7 @@ export function GroupsPage() {
       setMessage('No se pudo eliminar el grupo.');
     } finally {
       setIsLoading(false);
+      closeDeleteGroupConfirm();
     }
   };
 
@@ -195,6 +237,25 @@ export function GroupsPage() {
       .toLowerCase()
       .includes(searchQuery.toLowerCase())
   );
+
+  const openDetailModal = async (group: Group) => {
+    setDetailGroup(group);
+    setDetailStudents([]);
+    setIsDetailLoading(true);
+    try {
+      const data = await enrollmentService.getStudentsForGroup(group.id);
+      setDetailStudents(data);
+    } catch (error) {
+      console.error('Error loading group students:', error);
+    } finally {
+      setIsDetailLoading(false);
+    }
+  };
+
+  const closeDetailModal = () => {
+    setDetailGroup(null);
+    setDetailStudents([]);
+  };
 
   return (
     <div className="space-y-8">
@@ -228,7 +289,7 @@ export function GroupsPage() {
           </div>
         )}
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_420px]">
+        <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_420px] items-start">
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {isLoading ? (
               <div className="col-span-full rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
@@ -240,13 +301,17 @@ export function GroupsPage() {
               </div>
             ) : (
               filteredGroups.map((group) => (
-                <article key={group.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-900">
+                <article
+                  key={group.id}
+                  onClick={() => openDetailModal(group)}
+                  className="cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 p-5 transition hover:border-fuchsia-300 hover:shadow-md dark:border-slate-700 dark:bg-slate-900 dark:hover:border-fuchsia-700"
+                >
                   <div className="mb-4 flex items-start justify-between gap-3">
                     <div>
                       <h2 className="font-semibold text-slate-900 dark:text-slate-50">{group.name}</h2>
                       <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{branchNameById[group.branch_id] || 'Sucursal'}</p>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
                         onClick={() => openEditModal(group)}
@@ -258,7 +323,7 @@ export function GroupsPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDelete(group)}
+                        onClick={() => openDeleteGroupConfirm(group)}
                         disabled={isLoading}
                         className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50 dark:hover:bg-red-900/20 dark:hover:text-red-400"
                         title="Eliminar grupo"
@@ -268,7 +333,35 @@ export function GroupsPage() {
                     </div>
                   </div>
                   <div className="space-y-3 text-sm text-slate-700 dark:text-slate-300">
-                    <p className="flex items-center gap-2"><Calendar size={17} />{group.schedule}</p>
+                    {(() => {
+                      const { days, time } = (() => {
+                        if (!group.schedule) return { days: '', time: '' };
+                        if (group.schedule.includes('·')) {
+                          const [d, t] = group.schedule.split('·');
+                          return { days: d.trim(), time: t.trim() };
+                        }
+                        if (group.schedule.includes(' a las ')) {
+                          const [d, t] = group.schedule.split(' a las ');
+                          return { days: d.trim(), time: `a las ${t.trim()}` };
+                        }
+                        return { days: group.schedule.trim(), time: '' };
+                      })();
+
+                      return (
+                        <>
+                          <div className="flex items-start gap-2">
+                            <Calendar size={17} className="mt-0.5 shrink-0" />
+                            <span className="font-medium text-slate-900 dark:text-slate-100">{days}</span>
+                          </div>
+                          {time && (
+                            <div className="flex items-center gap-2">
+                              <Clock size={17} className="shrink-0" />
+                              <span>{time}</span>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                     <p className="flex items-center gap-2"><Users size={17} />{studentCounts[group.id] || 0} estudiantes</p>
                   </div>
                 </article>
@@ -311,10 +404,21 @@ export function GroupsPage() {
                 <input
                   type="text"
                   value={formData.name}
-                  onChange={(event) => setFormData((current) => ({ ...current, name: event.target.value }))}
+                  onChange={(event) => {
+                    setFormData((current) => ({ ...current, name: event.target.value }));
+                    if (groupNameError) setGroupNameError(null);
+                  }}
                   required
-                  className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 outline-none focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  placeholder="Ej: Grupo Infantil, Grupo 67..."
+                  className={`mt-2 w-full rounded-xl border px-3 py-2 text-slate-900 outline-none transition dark:text-slate-100 dark:bg-slate-900 ${
+                    groupNameError
+                      ? 'border-red-400 bg-red-50 focus:border-red-500 focus:ring-2 focus:ring-red-200 dark:border-red-600 dark:bg-red-950/20'
+                      : 'border-slate-300 bg-slate-50 focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-200 dark:border-slate-700 dark:focus:border-fuchsia-400 dark:focus:ring-fuchsia-900/30'
+                  }`}
                 />
+                {groupNameError && (
+                  <p className="mt-1 text-xs text-red-500">{groupNameError}</p>
+                )}
               </label>
 
               <div className="block text-sm text-slate-700 dark:text-slate-300">
@@ -414,6 +518,120 @@ export function GroupsPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Group detail modal: students list */}
+      <Modal
+        isOpen={Boolean(detailGroup)}
+        onClose={closeDetailModal}
+        title={detailGroup?.name ?? ''}
+        footer={
+          <button
+            type="button"
+            onClick={closeDetailModal}
+            className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
+          >
+            Cerrar
+          </button>
+        }
+      >
+        {/* Group meta */}
+        {detailGroup && (
+          <div className="mb-5 flex flex-wrap gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+            <span className="flex items-center gap-1.5">
+              <Layers size={15} className="text-fuchsia-500" />
+              {branchNameById[detailGroup.branch_id] || 'Sucursal'}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Calendar size={15} className="text-fuchsia-500" />
+              {detailGroup.schedule.split('·')[0]?.trim()}
+            </span>
+            {detailGroup.schedule.includes('·') && (
+              <span className="flex items-center gap-1.5">
+                <Clock size={15} className="text-fuchsia-500" />
+                {detailGroup.schedule.split('·')[1]?.trim()}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Students list */}
+        {isDetailLoading ? (
+          <div className="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+            Cargando estudiantes...
+          </div>
+        ) : detailStudents.length === 0 ? (
+          <div className="flex flex-col items-center gap-3 py-10 text-slate-400 dark:text-slate-500">
+            <Users size={36} className="opacity-40" />
+            <p className="text-sm">Este grupo no tiene estudiantes inscritos.</p>
+          </div>
+        ) : (
+          <ul className="divide-y divide-slate-100 dark:divide-slate-700/60">
+            {detailStudents.map(({ enrollment, student }) => (
+              <li key={enrollment.id} className="flex items-center gap-4 py-3">
+                {/* Avatar */}
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-fuchsia-100 text-sm font-bold text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-300">
+                  {student?.full_name?.[0]?.toUpperCase() ?? <UserRound size={16} />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium text-slate-900 dark:text-slate-50">
+                    {student?.full_name ?? 'Estudiante'}
+                  </p>
+                  {student?.document_number && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{student.document_number}</p>
+                  )}
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    Bs. {enrollment.monthly_fee.toLocaleString('es-BO', { minimumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-xs text-slate-400">mensualidad</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Modal>
+
+      {/* Confirm delete group modal */}
+      <Modal
+        isOpen={confirmDeleteGroupOpen}
+        onClose={closeDeleteGroupConfirm}
+        title="Eliminar grupo"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={closeDeleteGroupConfirm}
+              disabled={isLoading}
+              className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteGroupConfirm}
+              disabled={isLoading}
+              className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Trash2 size={16} />
+              {isLoading ? 'Eliminando...' : 'Eliminar'}
+            </button>
+          </>
+        }
+      >
+        <div className="flex items-start gap-4">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300">
+            <AlertTriangle size={20} />
+          </div>
+          <div>
+            <p className="text-sm text-slate-700 dark:text-slate-300">
+              ¿Estás seguro de que deseas eliminar el grupo <strong className="text-slate-900 dark:text-slate-100">{groupToDelete?.name}</strong>?
+            </p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Esta acción no se puede deshacer.</p>
+          </div>
+        </div>
+      </Modal>
+
     </div>
   );
 }

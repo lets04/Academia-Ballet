@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Building2, Calendar, Layers, MapPin, Plus, Search, Trash2, Users } from 'lucide-react';
+import { AlertTriangle, Building2, Calendar, Layers, MapPin, Plus, Search, Trash2, Users } from 'lucide-react';
 import { useBranch } from '@/contexts/branch';
 import { branchService } from '@/services/branch.service';
 import { enrollmentService } from '@/services/enrollment.service';
 import { groupService } from '@/services/group.service';
+import { Modal } from '@/components/ui/modal';
 import type { Branch } from '@/types';
 
 interface BranchStats {
@@ -19,6 +20,8 @@ export function BranchesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [branchToDelete, setBranchToDelete] = useState<Branch | null>(null);
 
   const loadStats = async (branchList: Branch[]) => {
     const statsEntries = await Promise.all(
@@ -56,18 +59,27 @@ export function BranchesPage() {
     }
   };
 
-  const handleDelete = async (branch: Branch) => {
+  const openDeleteConfirm = (branch: Branch) => {
     const stats = branchStats[branch.id];
     if (stats && (stats.groups > 0 || stats.students > 0)) {
       setMessage('No puedes eliminar una sucursal con grupos o estudiantes activos.');
       return;
     }
+    setBranchToDelete(branch);
+    setConfirmDeleteOpen(true);
+  };
 
-    if (!window.confirm(`¿Eliminar la sucursal "${branch.name}"?`)) return;
+  const closeDeleteConfirm = () => {
+    setConfirmDeleteOpen(false);
+    setBranchToDelete(null);
+  };
+
+  const handleDelete = async () => {
+    if (!branchToDelete) return;
 
     setIsLoading(true);
     try {
-      await branchService.delete(branch.id);
+      await branchService.delete(branchToDelete.id);
       setMessage('Sucursal eliminada correctamente.');
       await refreshBranches();
     } catch (error) {
@@ -75,6 +87,7 @@ export function BranchesPage() {
       setMessage('No se pudo eliminar la sucursal.');
     } finally {
       setIsLoading(false);
+      closeDeleteConfirm();
     }
   };
 
@@ -123,7 +136,7 @@ export function BranchesPage() {
           </div>
         )}
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_380px]">
+        <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_380px] items-start">
           <section className="grid gap-4 sm:grid-cols-2">
             {filteredBranches.length === 0 ? (
               <div className="col-span-full rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
@@ -153,7 +166,7 @@ export function BranchesPage() {
                       </div>
                       <button
                         type="button"
-                        onClick={() => handleDelete(branch)}
+                        onClick={() => openDeleteConfirm(branch)}
                         disabled={isLoading}
                         className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50 dark:hover:bg-red-900/20 dark:hover:text-red-400"
                         title="Eliminar sucursal"
@@ -218,6 +231,44 @@ export function BranchesPage() {
           </section>
         </div>
       </div>
-    </div>
+        <Modal
+          isOpen={confirmDeleteOpen}
+          onClose={closeDeleteConfirm}
+          title="Eliminar sucursal"
+          footer={
+            <>
+              <button
+                type="button"
+                onClick={closeDeleteConfirm}
+                disabled={isLoading}
+                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={isLoading}
+                className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Trash2 size={16} />
+                {isLoading ? 'Eliminando...' : 'Eliminar'}
+              </button>
+            </>
+          }
+        >
+          <div className="flex items-start gap-4">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300">
+              <AlertTriangle size={20} />
+            </div>
+            <div>
+              <p className="text-sm text-slate-700 dark:text-slate-300">
+                ¿Estás seguro de que deseas eliminar la sucursal <strong className="text-slate-900 dark:text-slate-100">{branchToDelete?.name}</strong>?
+              </p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Esta acción no se puede deshacer.</p>
+            </div>
+          </div>
+        </Modal>
+      </div>
   );
 }

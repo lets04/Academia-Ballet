@@ -99,16 +99,16 @@ export function Topbar() {
 
           {showUserMenu && (
             <div className={cn(
-              'absolute right-0 mt-2 w-48 rounded-lg shadow-lg',
+              'absolute right-0 mt-2 w-56 rounded-lg shadow-lg',
               'bg-white dark:bg-slate-800',
               'border border-slate-200 dark:border-slate-700',
               'z-50'
             )}>
               <div className="p-3 border-b border-slate-200 dark:border-slate-700">
                 <p className={cn(
-                  'text-sm font-semibold',
+                  'text-sm font-semibold truncate',
                   'text-slate-900 dark:text-slate-50'
-                )}>
+                )} title={user?.email || ''}>
                   {user?.email}
                 </p>
                 <p className={cn(

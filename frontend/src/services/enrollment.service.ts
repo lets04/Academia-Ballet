@@ -5,7 +5,8 @@ export const enrollmentService = {
   async list(studentId?: string, branchId?: string): Promise<Enrollment[]> {
     let query = supabase
       .from('enrollments')
-      .select('*');
+      .select('*')
+      .eq('is_active', true);
 
     if (studentId) {
       query = query.eq('student_id', studentId);
@@ -52,7 +53,48 @@ export const enrollmentService = {
     return data || null;
   },
 
+  async getActiveStudentIds(): Promise<string[]> {
+    const { data, error } = await supabase
+      .from('enrollments')
+      .select('student_id')
+      .eq('is_active', true);
+
+    if (error) throw error;
+    return data?.map((e) => e.student_id) || [];
+  },
+
+  async getStudentsForGroup(groupId: string): Promise<Array<{ enrollment: Enrollment; student: { id: string; full_name: string; document_number: string | null; phone: string | null } }>> {
+    const { data, error } = await supabase
+      .from('enrollments')
+      .select('*, students(id, full_name, document_number, phone)')
+      .eq('group_id', groupId)
+      .eq('is_active', true)
+      .order('start_date', { ascending: false });
+
+    if (error) throw error;
+
+    return (data || []).map((row: any) => ({
+      enrollment: {
+        id: row.id,
+        student_id: row.student_id,
+        group_id: row.group_id,
+        monthly_fee: row.monthly_fee,
+        is_active: row.is_active,
+        start_date: row.start_date,
+        end_date: row.end_date,
+        created_at: row.created_at,
+      },
+      student: row.students,
+    }));
+  },
+
   async create(form: CreateEnrollmentForm): Promise<Enrollment> {
+    // Check if student already has an active enrollment
+    const active = await this.getActive(form.student_id);
+    if (active) {
+      throw new Error('El estudiante ya cuenta con una inscripción activa en otra sucursal o grupo.');
+    }
+
     const startDate = new Date().toISOString().split('T')[0];
 
     const { data, error } = await supabase

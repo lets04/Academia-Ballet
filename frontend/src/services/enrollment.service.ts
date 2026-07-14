@@ -110,6 +110,25 @@ export const enrollmentService = {
       .single();
 
     if (error) throw error;
+
+    // Auto-create payment period for the current month
+    try {
+      const now = new Date();
+      const currentMonth = now.getMonth() + 1;
+      const currentYear = now.getFullYear();
+      const { error: periodError } = await supabase
+        .from('payment_periods')
+        .insert([{
+          enrollment_id: data.id,
+          month: currentMonth,
+          year: currentYear,
+          total_amount: form.monthly_fee || 0,
+        }]);
+      if (periodError) console.error('Error creating payment period:', periodError);
+    } catch (e) {
+      console.error('Error creating payment period:', e);
+    }
+
     return data;
   },
 

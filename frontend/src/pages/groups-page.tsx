@@ -1,22 +1,34 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import type { FormEvent } from 'react';
-import { AlertTriangle, Building2, Calendar, Clock, Layers, Pencil, Plus, Search, Trash2, UserRound, Users } from 'lucide-react';
+import { AlertTriangle, Building2, Clock, Funnel, Layers, MapPin, MoreVertical, Pencil, Plus, Search, Trash2, Users } from 'lucide-react';
 import { useBranch } from '@/contexts/branch';
 import { SchedulePicker } from '@/components/schedule-picker';
 import { Modal } from '@/components/ui/modal';
+import { ToastContainer } from '@/components/ui/toast';
 import { groupService } from '@/services/group.service';
-import { enrollmentService } from '@/services/enrollment.service';
 import {
   buildScheduleLabel,
   isScheduleComplete,
   parseScheduleLabel,
 } from '@/lib/schedule';
-import type { CreateGroupForm, Group } from '@/types';
+import type { CreateGroupForm, Group, Notification } from '@/types';
+import { cn } from '@/lib/utils';
+
+const LEVELS = [
+  { value: '', label: 'Selecciona un nivel' },
+  { value: 'Principiante', label: 'Principiante' },
+  { value: 'Intermedio', label: 'Intermedio' },
+  { value: 'Avanzado', label: 'Avanzado' },
+  { value: 'Todos los niveles', label: 'Todos los niveles' },
+];
 
 const initialForm: CreateGroupForm = {
   branch_id: '',
   name: '',
   schedule: '',
+  instructor: '',
+  capacity: 20,
+  level: '',
 };
 
 const initialSchedule = {
@@ -39,18 +51,27 @@ export function GroupsPage() {
   const [editStartTime, setEditStartTime] = useState(initialSchedule.startTime);
   const [editEndTime, setEditEndTime] = useState(initialSchedule.endTime);
   const [searchQuery, setSearchQuery] = useState('');
+  const [levelFilter, setLevelFilter] = useState<'all' | 'Principiante' | 'Intermedio' | 'Avanzado' | 'Todos los niveles'>('all');
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [groupNameError, setGroupNameError] = useState<string | null>(null);
 
-  // Detail modal state
-  const [detailGroup, setDetailGroup] = useState<Group | null>(null);
-  const [detailStudents, setDetailStudents] = useState<Array<{ enrollment: any; student: any }>>([]);
-  const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const addNotification = useCallback((type: Notification['type'], message: string) => {
+    const id = Date.now().toString();
+    setNotifications((prev) => [...prev, { id, type, message, duration: 4000 }]);
+  }, []);
+
+  const removeNotification = useCallback((id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  }, []);
 
   // Confirm modal states
   const [confirmDeleteGroupOpen, setConfirmDeleteGroupOpen] = useState(false);
   const [groupToDelete, setGroupToDelete] = useState<Group | null>(null);
+
+  // 3-dots menu state
+  const [openMenuGroupId, setOpenMenuGroupId] = useState<string | null>(null);
 
   const branchNameById = useMemo(
     () => Object.fromEntries(branches.map((branch) => [branch.id, branch.name])),
@@ -69,7 +90,7 @@ export function GroupsPage() {
       setStudentCounts(Object.fromEntries(counts));
     } catch (error) {
       console.error('Error loading groups:', error);
-      setMessage('No se pudieron cargar los grupos.');
+      addNotification('error', 'No se pudieron cargar los grupos.');
     } finally {
       setIsLoading(false);
     }
@@ -78,6 +99,19 @@ export function GroupsPage() {
   useEffect(() => {
     loadGroups();
   }, [selectedBranchId]);
+
+  // Close dots menu when clicking outside
+  useEffect(() => {
+    if (!openMenuGroupId) return;
+    const handleClick = () => setOpenMenuGroupId(null);
+    const timer = setTimeout(() => {
+      document.addEventListener('click', handleClick, { once: true });
+    }, 50);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('click', handleClick);
+    };
+  }, [openMenuGroupId]);
 
   useEffect(() => {
     setFormData((current) => ({
@@ -100,6 +134,10 @@ export function GroupsPage() {
   };
 
   const validateGroup = (): boolean => {
+    if (!formData.branch_id) {
+      addNotification('warning', 'Selecciona una sucursal.');
+      return false;
+    }
     const name = formData.name.trim();
     if (!name) {
       setGroupNameError('El nombre del grupo es obligatorio.');
@@ -120,11 +158,11 @@ export function GroupsPage() {
 
   const validateSchedule = (days: number[], start: string, end: string) => {
     if (!isScheduleComplete(days, start)) {
-      setMessage('Selecciona al menos un día y la hora de inicio.');
+      addNotification('warning', 'Selecciona al menos un día y la hora de inicio.');
       return false;
     }
     if (end && end <= start) {
-      setMessage('La hora de fin debe ser posterior a la hora de inicio.');
+      addNotification('warning', 'La hora de fin debe ser posterior a la hora de inicio.');
       return false;
     }
     return true;
@@ -144,11 +182,11 @@ export function GroupsPage() {
       setFormData({ ...initialForm, branch_id: selectedBranchId || branches[0]?.id || '' });
       resetSchedule();
       setGroupNameError(null);
-      setMessage('Grupo agregado correctamente.');
+      addNotification('success', 'Grupo agregado correctamente.');
       await loadGroups();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating group:', error);
-      setMessage('No se pudo crear el grupo. Revisa los datos e intenta nuevamente.');
+      addNotification('error', error?.message || 'No se pudo crear el grupo. Revisa los datos e intenta nuevamente.');
     } finally {
       setIsLoading(false);
     }
@@ -161,11 +199,13 @@ export function GroupsPage() {
       branch_id: group.branch_id,
       name: group.name,
       schedule: group.schedule,
+      instructor: group.instructor || '',
+      capacity: group.capacity || 20,
+      level: group.level || '',
     });
     setEditScheduleDays(parsed.days);
     setEditStartTime(parsed.startTime);
     setEditEndTime(parsed.endTime);
-    setMessage(null);
   };
 
   const closeEditModal = () => {
@@ -187,24 +227,22 @@ export function GroupsPage() {
         branch_id: editFormData.branch_id,
         name: editFormData.name,
         schedule: buildScheduleLabel(editScheduleDays, editStartTime, editEndTime || undefined),
+        instructor: editFormData.instructor,
+        capacity: editFormData.capacity,
+        level: editFormData.level,
       });
       closeEditModal();
-      setMessage('Grupo actualizado correctamente.');
+      addNotification('success', 'Grupo actualizado correctamente.');
       await loadGroups();
     } catch (error) {
       console.error('Error updating group:', error);
-      setMessage('No se pudo actualizar el grupo.');
+      addNotification('error', 'No se pudo actualizar el grupo.');
     } finally {
       setIsLoading(false);
     }
   };
 
   const openDeleteGroupConfirm = (group: Group) => {
-    const count = studentCounts[group.id] || 0;
-    if (count > 0) {
-      setMessage('No puedes eliminar un grupo con estudiantes inscritos.');
-      return;
-    }
     setGroupToDelete(group);
     setConfirmDeleteGroupOpen(true);
   };
@@ -221,76 +259,111 @@ export function GroupsPage() {
     try {
       await groupService.delete(groupToDelete.id);
       if (editingGroup?.id === groupToDelete.id) closeEditModal();
-      setMessage('Grupo eliminado correctamente.');
+      addNotification('success', 'Grupo eliminado correctamente.');
       await loadGroups();
     } catch (error) {
       console.error('Error deleting group:', error);
-      setMessage('No se pudo eliminar el grupo.');
+      addNotification('error', 'No se pudo eliminar el grupo.');
     } finally {
       setIsLoading(false);
       closeDeleteGroupConfirm();
     }
   };
 
-  const filteredGroups = groups.filter((group) =>
-    `${group.name} ${group.schedule} ${branchNameById[group.branch_id] || ''}`
+  const filteredGroups = groups.filter((group) => {
+    const q = searchQuery.toLowerCase();
+    const matchesSearch = `${group.name} ${group.schedule} ${branchNameById[group.branch_id] || ''} ${group.instructor || ''} ${group.level || ''}`
       .toLowerCase()
-      .includes(searchQuery.toLowerCase())
-  );
+      .includes(q);
+    if (!matchesSearch) return false;
+    if (levelFilter === 'all') return true;
+    return group.level === levelFilter;
+  });
 
-  const openDetailModal = async (group: Group) => {
-    setDetailGroup(group);
-    setDetailStudents([]);
-    setIsDetailLoading(true);
-    try {
-      const data = await enrollmentService.getStudentsForGroup(group.id);
-      setDetailStudents(data);
-    } catch (error) {
-      console.error('Error loading group students:', error);
-    } finally {
-      setIsDetailLoading(false);
+  const getLevelBadgeColor = (level?: string | null) => {
+    switch (level?.toLowerCase()) {
+      case 'principiante':
+        return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300';
+      case 'intermedio':
+        return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300';
+      case 'avanzado':
+        return 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300';
+      default:
+        return 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300';
     }
-  };
-
-  const closeDetailModal = () => {
-    setDetailGroup(null);
-    setDetailStudents([]);
   };
 
   return (
     <div className="space-y-8">
       <div className="rounded-3xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-2">
           <div className="flex items-center gap-4">
             <div className="flex size-12 items-center justify-center rounded-2xl bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-200">
               <Layers size={24} />
             </div>
             <div>
               <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-50">Grupos</h1>
-              <p className="mt-1 text-slate-600 dark:text-slate-400">Organiza horarios, sucursales y cupos activos.</p>
+              <p className="mt-1 text-slate-600 dark:text-slate-400">Organiza horarios, instructores y cupos activos.</p>
             </div>
           </div>
-
-          <label className="relative w-full md:max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Buscar grupo u horario"
-              className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2 pl-10 pr-4 text-slate-900 outline-none focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-fuchsia-400 dark:focus:ring-fuchsia-900/30"
-            />
-          </label>
         </div>
 
-        {message && (
-          <div className="mt-6 rounded-xl border border-fuchsia-200 bg-fuchsia-50 px-4 py-3 text-sm text-fuchsia-700 dark:border-fuchsia-900/40 dark:bg-fuchsia-950/40 dark:text-fuchsia-100">
-            {message}
-          </div>
-        )}
-
         <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_420px] items-start">
-          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {/* Cards grid */}
+          <section className="space-y-4">
+            <div className="flex items-center gap-3">
+              <label className="relative block w-full md:max-w-lg">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Buscar grupo, instructor o nivel..."
+                  className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 pl-10 pr-4 text-slate-900 outline-none focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-fuchsia-400 dark:focus:ring-fuchsia-900/30"
+                />
+              </label>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowFilterMenu(!showFilterMenu)}
+                  className="flex shrink-0 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                >
+                  <Funnel size={16} />
+                  Filtros
+                  {levelFilter !== 'all' && (
+                    <span className="flex size-5 items-center justify-center rounded-full bg-fuchsia-100 text-xs font-bold text-fuchsia-700 dark:bg-fuchsia-900/40 dark:text-fuchsia-300">1</span>
+                  )}
+                </button>
+                {showFilterMenu && (
+                  <div className="absolute right-0 z-20 mt-2 w-52 rounded-xl border border-slate-200 bg-white p-2 shadow-lg dark:border-slate-700 dark:bg-slate-800">
+                    <p className="px-2 py-1 text-xs font-semibold text-slate-500 dark:text-slate-400">Nivel</p>
+                    {[
+                      { value: 'all' as const, label: 'Todos' },
+                      { value: 'Principiante' as const, label: 'Principiante' },
+                      { value: 'Intermedio' as const, label: 'Intermedio' },
+                      { value: 'Avanzado' as const, label: 'Avanzado' },
+                      { value: 'Todos los niveles' as const, label: 'Todos los niveles' },
+                    ].map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => { setLevelFilter(opt.value); setShowFilterMenu(false); }}
+                        className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
+                          levelFilter === opt.value
+                            ? 'bg-fuchsia-50 font-semibold text-fuchsia-700 dark:bg-fuchsia-900/20 dark:text-fuchsia-300'
+                            : 'text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        {levelFilter === opt.value && <span className="size-1.5 rounded-full bg-fuchsia-500" />}
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {isLoading ? (
               <div className="col-span-full rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
                 Cargando grupos...
@@ -300,96 +373,173 @@ export function GroupsPage() {
                 No se encontraron grupos.
               </div>
             ) : (
-              filteredGroups.map((group) => (
-                <article
-                  key={group.id}
-                  onClick={() => openDetailModal(group)}
-                  className="cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 p-5 transition hover:border-fuchsia-300 hover:shadow-md dark:border-slate-700 dark:bg-slate-900 dark:hover:border-fuchsia-700"
-                >
-                  <div className="mb-4 flex items-start justify-between gap-3">
-                    <div>
-                      <h2 className="font-semibold text-slate-900 dark:text-slate-50">{group.name}</h2>
-                      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{branchNameById[group.branch_id] || 'Sucursal'}</p>
-                    </div>
-                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        onClick={() => openEditModal(group)}
-                        disabled={isLoading}
-                        className="rounded-lg p-2 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600 disabled:opacity-50 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
-                        title="Editar grupo"
-                      >
-                        <Pencil size={16} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => openDeleteGroupConfirm(group)}
-                        disabled={isLoading}
-                        className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-                        title="Eliminar grupo"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="space-y-3 text-sm text-slate-700 dark:text-slate-300">
-                    {(() => {
-                      const { days, time } = (() => {
-                        if (!group.schedule) return { days: '', time: '' };
-                        if (group.schedule.includes('·')) {
-                          const [d, t] = group.schedule.split('·');
-                          return { days: d.trim(), time: t.trim() };
-                        }
-                        if (group.schedule.includes(' a las ')) {
-                          const [d, t] = group.schedule.split(' a las ');
-                          return { days: d.trim(), time: `a las ${t.trim()}` };
-                        }
-                        return { days: group.schedule.trim(), time: '' };
-                      })();
+              filteredGroups.map((group) => {
+                const count = studentCounts[group.id] || 0;
+                const capacity = group.capacity || 20;
+                const pct = Math.min(100, Math.round((count / capacity) * 100));
+                const scheduleParts = group.schedule.split('·');
+                const daysPart = scheduleParts[0]?.trim() || '';
+                const timePart = scheduleParts[1]?.trim() || '';
 
-                      return (
-                        <>
-                          <div className="flex items-start gap-2">
-                            <Calendar size={17} className="mt-0.5 shrink-0" />
-                            <span className="font-medium text-slate-900 dark:text-slate-100">{days}</span>
-                          </div>
-                          {time && (
-                            <div className="flex items-center gap-2">
-                              <Clock size={17} className="shrink-0" />
-                              <span>{time}</span>
-                            </div>
+                const menuOpen = openMenuGroupId === group.id;
+
+                return (
+                  <article
+                    key={group.id}
+                    className="relative flex flex-col rounded-2xl border border-slate-200 bg-white transition hover:border-fuchsia-300 hover:shadow-md dark:border-slate-700 dark:bg-slate-800 dark:hover:border-fuchsia-700 overflow-hidden"
+                  >
+                    {/* 3-dots menu */}
+                    <div className="absolute right-3 top-3 z-10">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenMenuGroupId(menuOpen ? null : group.id);
+                        }}
+                        className="flex size-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-200 hover:text-slate-600 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+                      >
+                        <MoreVertical size={16} />
+                      </button>
+
+                      {menuOpen && (
+                        <div
+                          className={cn(
+                            'absolute right-0 top-8 w-40 rounded-xl border shadow-lg',
+                            'bg-white dark:bg-slate-800',
+                            'border-slate-200 dark:border-slate-700',
+                            'z-20 overflow-hidden'
                           )}
-                        </>
-                      );
-                    })()}
-                    <p className="flex items-center gap-2"><Users size={17} />{studentCounts[group.id] || 0} estudiantes</p>
-                  </div>
-                </article>
-              ))
+                        >
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenMenuGroupId(null);
+                              openEditModal(group);
+                            }}
+                            disabled={isLoading}
+                            className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-700"
+                          >
+                            <Pencil size={14} />
+                            Editar
+                          </button>
+                          <div className="border-t border-slate-100 dark:border-slate-700" />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenMenuGroupId(null);
+                              openDeleteGroupConfirm(group);
+                            }}
+                            disabled={isLoading}
+                            className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                          >
+                            <Trash2 size={14} />
+                            Eliminar
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Header - fondo claro */}
+                    <div className="bg-slate-50 p-4 pr-10 dark:bg-slate-700/50">
+                      <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50">
+                        {group.name}
+                      </h2>
+                      <div className="mt-2 flex items-center gap-2">
+                        {group.level ? (
+                          <span
+                            className={cn(
+                              'inline-flex rounded-full px-3 py-1 text-xs font-semibold',
+                              getLevelBadgeColor(group.level)
+                            )}
+                          >
+                            {group.level}
+                          </span>
+                        ) : (
+                          <span className="inline-flex rounded-full px-3 py-1 text-xs font-semibold bg-slate-200 text-slate-600 dark:bg-slate-600 dark:text-slate-300">
+                            Sin nivel
+                          </span>
+                        )}
+                        <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-500" />
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+                          <MapPin size={11} />
+                          {branchNameById[group.branch_id] || 'Sucursal'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Separador */}
+                    <div className="border-t border-slate-200 dark:border-slate-700" />
+
+                    {/* Body - fondo oscuro */}
+                    <div className="flex-1 bg-slate-900 p-4 text-sm">
+                      {/* Instructor */}
+                      <div className="mb-3">
+                        <p className="text-xs text-slate-400">Instructor</p>
+                        <p className="text-base font-bold text-white">
+                          {group.instructor || '-'}
+                        </p>
+                      </div>
+
+                      {/* Horario */}
+                      <div className="mb-3 flex items-start gap-2">
+                        <Clock size={16} className="mt-0.5 shrink-0 text-slate-400" />
+                        <div>
+                          <p className="text-xs text-slate-400">{daysPart}</p>
+                          {timePart && <p className="text-sm font-bold text-white">{timePart}</p>}
+                        </div>
+                      </div>
+
+                      {/* Estudiantes */}
+                      <div className="flex items-start gap-2">
+                        <Users size={16} className="mt-0.5 shrink-0 text-slate-400" />
+                        <div className="flex-1">
+                          <p className="text-xs text-slate-400">Estudiantes</p>
+                          <p className="text-sm font-bold text-white">
+                            {count}/{capacity}
+                          </p>
+                          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-700">
+                            <div
+                              className={cn(
+                                'h-full rounded-full transition-all',
+                                count >= capacity ? 'bg-red-500' :
+                                count >= capacity * 0.8 ? 'bg-amber-500' :
+                                'bg-emerald-500'
+                              )}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })
             )}
+            </div>
           </section>
 
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <div className="mb-5 flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200">
-                <Plus size={20} />
+          {/* Create form */}
+          <section className="self-start rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <div className="mb-3 flex items-center gap-3">
+              <div className="flex size-8 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200">
+                <Plus size={18} />
               </div>
               <div>
-                <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-50">Nuevo grupo</h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Define sucursal y horario.</p>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Nuevo grupo</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Define sucursal, instructor y horario.</p>
               </div>
             </div>
 
-            <form className="space-y-4" onSubmit={handleSubmit}>
+            <form className="space-y-3" onSubmit={handleSubmit}>
               <label className="block text-sm text-slate-700 dark:text-slate-300">
                 Sucursal
-                <div className="relative mt-2">
-                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <div className="relative mt-1.5">
+                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                   <select
                     value={formData.branch_id}
                     onChange={(event) => setFormData((current) => ({ ...current, branch_id: event.target.value }))}
                     required
-                    className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2 pl-10 pr-3 text-slate-900 outline-none focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                    className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2 pl-9 pr-3 text-sm text-slate-900 outline-none focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                   >
                     <option value="">Selecciona una sucursal</option>
                     {branches.map((branch) => (
@@ -409,8 +559,8 @@ export function GroupsPage() {
                     if (groupNameError) setGroupNameError(null);
                   }}
                   required
-                  placeholder="Ej: Grupo Infantil, Grupo 67..."
-                  className={`mt-2 w-full rounded-xl border px-3 py-2 text-slate-900 outline-none transition dark:text-slate-100 dark:bg-slate-900 ${
+                  placeholder="Ej: Salsa Principiantes"
+                  className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-sm text-slate-900 outline-none transition dark:text-slate-100 dark:bg-slate-900 ${
                     groupNameError
                       ? 'border-red-400 bg-red-50 focus:border-red-500 focus:ring-2 focus:ring-red-200 dark:border-red-600 dark:bg-red-950/20'
                       : 'border-slate-300 bg-slate-50 focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-200 dark:border-slate-700 dark:focus:border-fuchsia-400 dark:focus:ring-fuchsia-900/30'
@@ -421,9 +571,47 @@ export function GroupsPage() {
                 )}
               </label>
 
+              <label className="block text-sm text-slate-700 dark:text-slate-300">
+                Instructor
+                <input
+                  type="text"
+                  value={formData.instructor || ''}
+                  onChange={(event) => setFormData((current) => ({ ...current, instructor: event.target.value }))}
+                  placeholder="Ej: María López"
+                  className="mt-1.5 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-fuchsia-400 dark:focus:ring-fuchsia-900/30"
+                />
+              </label>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block text-sm text-slate-700 dark:text-slate-300">
+                  Capacidad
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={formData.capacity || 20}
+                    onChange={(event) => setFormData((current) => ({ ...current, capacity: Number(event.target.value) }))}
+                    className="mt-1.5 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-fuchsia-400 dark:focus:ring-fuchsia-900/30"
+                  />
+                </label>
+
+                <label className="block text-sm text-slate-700 dark:text-slate-300">
+                  Nivel
+                  <select
+                    value={formData.level || ''}
+                    onChange={(event) => setFormData((current) => ({ ...current, level: event.target.value }))}
+                    className="mt-1.5 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-fuchsia-400 dark:focus:ring-fuchsia-900/30"
+                  >
+                    {LEVELS.map((l) => (
+                      <option key={l.value} value={l.value}>{l.label}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
               <div className="block text-sm text-slate-700 dark:text-slate-300">
                 Horario
-                <div className="mt-2">
+                <div className="mt-1.5">
                   <SchedulePicker
                     days={scheduleDays}
                     startTime={startTime}
@@ -438,7 +626,7 @@ export function GroupsPage() {
               <button
                 type="submit"
                 disabled={isLoading || !isScheduleComplete(scheduleDays, startTime)}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-fuchsia-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-fuchsia-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-fuchsia-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-fuchsia-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Plus size={18} />
                 {isLoading ? 'Guardando...' : 'Agregar grupo'}
@@ -448,6 +636,7 @@ export function GroupsPage() {
         </div>
       </div>
 
+      {/* Edit modal */}
       <Modal
         isOpen={Boolean(editingGroup)}
         onClose={closeEditModal}
@@ -473,16 +662,16 @@ export function GroupsPage() {
           </>
         }
       >
-        <form id="edit-group-form" className="space-y-4" onSubmit={handleEditSubmit}>
+        <form id="edit-group-form" className="space-y-3" onSubmit={handleEditSubmit}>
           <label className="block text-sm text-slate-700 dark:text-slate-300">
             Sucursal
-            <div className="relative mt-2">
-              <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <div className="relative mt-1.5">
+              <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               <select
                 value={editFormData.branch_id}
                 onChange={(event) => setEditFormData((current) => ({ ...current, branch_id: event.target.value }))}
                 required
-                className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2 pl-10 pr-3 text-slate-900 outline-none focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2 pl-9 pr-3 text-sm text-slate-900 outline-none focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               >
                 <option value="">Selecciona una sucursal</option>
                 {branches.map((branch) => (
@@ -499,13 +688,51 @@ export function GroupsPage() {
               value={editFormData.name}
               onChange={(event) => setEditFormData((current) => ({ ...current, name: event.target.value }))}
               required
-              className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 outline-none focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="mt-1.5 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-fuchsia-400 dark:focus:ring-fuchsia-900/30"
             />
           </label>
 
+          <label className="block text-sm text-slate-700 dark:text-slate-300">
+            Instructor
+            <input
+              type="text"
+              value={editFormData.instructor || ''}
+              onChange={(event) => setEditFormData((current) => ({ ...current, instructor: event.target.value }))}
+              placeholder="Ej: María López"
+              className="mt-1.5 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-fuchsia-400 dark:focus:ring-fuchsia-900/30"
+            />
+          </label>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block text-sm text-slate-700 dark:text-slate-300">
+              Capacidad
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={editFormData.capacity || 20}
+                onChange={(event) => setEditFormData((current) => ({ ...current, capacity: Number(event.target.value) }))}
+                className="mt-1.5 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-fuchsia-400 dark:focus:ring-fuchsia-900/30"
+              />
+            </label>
+
+            <label className="block text-sm text-slate-700 dark:text-slate-300">
+              Nivel
+              <select
+                value={editFormData.level || ''}
+                onChange={(event) => setEditFormData((current) => ({ ...current, level: event.target.value }))}
+                className="mt-1.5 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-fuchsia-400 dark:focus:ring-fuchsia-900/30"
+              >
+                {LEVELS.map((l) => (
+                  <option key={l.value} value={l.value}>{l.label}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
           <div className="block text-sm text-slate-700 dark:text-slate-300">
             Horario
-            <div className="mt-2">
+            <div className="mt-1.5">
               <SchedulePicker
                 days={editScheduleDays}
                 startTime={editStartTime}
@@ -517,79 +744,6 @@ export function GroupsPage() {
             </div>
           </div>
         </form>
-      </Modal>
-
-      {/* Group detail modal: students list */}
-      <Modal
-        isOpen={Boolean(detailGroup)}
-        onClose={closeDetailModal}
-        title={detailGroup?.name ?? ''}
-        footer={
-          <button
-            type="button"
-            onClick={closeDetailModal}
-            className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
-          >
-            Cerrar
-          </button>
-        }
-      >
-        {/* Group meta */}
-        {detailGroup && (
-          <div className="mb-5 flex flex-wrap gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
-            <span className="flex items-center gap-1.5">
-              <Layers size={15} className="text-fuchsia-500" />
-              {branchNameById[detailGroup.branch_id] || 'Sucursal'}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Calendar size={15} className="text-fuchsia-500" />
-              {detailGroup.schedule.split('·')[0]?.trim()}
-            </span>
-            {detailGroup.schedule.includes('·') && (
-              <span className="flex items-center gap-1.5">
-                <Clock size={15} className="text-fuchsia-500" />
-                {detailGroup.schedule.split('·')[1]?.trim()}
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Students list */}
-        {isDetailLoading ? (
-          <div className="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
-            Cargando estudiantes...
-          </div>
-        ) : detailStudents.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 py-10 text-slate-400 dark:text-slate-500">
-            <Users size={36} className="opacity-40" />
-            <p className="text-sm">Este grupo no tiene estudiantes inscritos.</p>
-          </div>
-        ) : (
-          <ul className="divide-y divide-slate-100 dark:divide-slate-700/60">
-            {detailStudents.map(({ enrollment, student }) => (
-              <li key={enrollment.id} className="flex items-center gap-4 py-3">
-                {/* Avatar */}
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-fuchsia-100 text-sm font-bold text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-300">
-                  {student?.full_name?.[0]?.toUpperCase() ?? <UserRound size={16} />}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium text-slate-900 dark:text-slate-50">
-                    {student?.full_name ?? 'Estudiante'}
-                  </p>
-                  {student?.document_number && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400">{student.document_number}</p>
-                  )}
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    Bs. {enrollment.monthly_fee.toLocaleString('es-BO', { minimumFractionDigits: 2 })}
-                  </p>
-                  <p className="text-xs text-slate-400">mensualidad</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
       </Modal>
 
       {/* Confirm delete group modal */}
@@ -627,11 +781,13 @@ export function GroupsPage() {
             <p className="text-sm text-slate-700 dark:text-slate-300">
               ¿Estás seguro de que deseas eliminar el grupo <strong className="text-slate-900 dark:text-slate-100">{groupToDelete?.name}</strong>?
             </p>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Esta acción no se puede deshacer.</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Se eliminarán permanentemente las inscripciones, pagos e historial asociados. Esta acción no se puede deshacer.
+            </p>
           </div>
         </div>
       </Modal>
-
+      <ToastContainer notifications={notifications} onClose={removeNotification} />
     </div>
   );
 }

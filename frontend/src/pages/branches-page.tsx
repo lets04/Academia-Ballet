@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import type { FormEvent } from 'react';
 import { AlertTriangle, Building2, Calendar, Layers, MapPin, Plus, Search, Trash2, Users } from 'lucide-react';
 import { useBranch } from '@/contexts/branch';
@@ -6,7 +6,8 @@ import { branchService } from '@/services/branch.service';
 import { enrollmentService } from '@/services/enrollment.service';
 import { groupService } from '@/services/group.service';
 import { Modal } from '@/components/ui/modal';
-import type { Branch } from '@/types';
+import { ToastContainer } from '@/components/ui/toast';
+import type { Branch, Notification } from '@/types';
 
 interface BranchStats {
   groups: number;
@@ -19,9 +20,18 @@ export function BranchesPage() {
   const [newBranchName, setNewBranchName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [branchToDelete, setBranchToDelete] = useState<Branch | null>(null);
+
+  const addNotification = useCallback((type: Notification['type'], message: string) => {
+    const id = Date.now().toString();
+    setNotifications((prev) => [...prev, { id, type, message, duration: 4000 }]);
+  }, []);
+
+  const removeNotification = useCallback((id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  }, []);
 
   const loadStats = async (branchList: Branch[]) => {
     const statsEntries = await Promise.all(
@@ -49,11 +59,11 @@ export function BranchesPage() {
     try {
       await branchService.create(name);
       setNewBranchName('');
-      setMessage('Sucursal agregada correctamente.');
+      addNotification('success', 'Sucursal agregada correctamente.');
       await refreshBranches();
     } catch (error) {
       console.error('Error creating branch:', error);
-      setMessage('No se pudo crear la sucursal. Verifica que el nombre no exista ya.');
+      addNotification('error', 'No se pudo crear la sucursal. Verifica que el nombre no exista ya.');
     } finally {
       setIsLoading(false);
     }
@@ -62,7 +72,7 @@ export function BranchesPage() {
   const openDeleteConfirm = (branch: Branch) => {
     const stats = branchStats[branch.id];
     if (stats && (stats.groups > 0 || stats.students > 0)) {
-      setMessage('No puedes eliminar una sucursal con grupos o estudiantes activos.');
+      addNotification('warning', 'No puedes eliminar una sucursal con grupos o estudiantes activos.');
       return;
     }
     setBranchToDelete(branch);
@@ -80,11 +90,11 @@ export function BranchesPage() {
     setIsLoading(true);
     try {
       await branchService.delete(branchToDelete.id);
-      setMessage('Sucursal eliminada correctamente.');
+      addNotification('success', 'Sucursal eliminada correctamente.');
       await refreshBranches();
     } catch (error) {
       console.error('Error deleting branch:', error);
-      setMessage('No se pudo eliminar la sucursal.');
+      addNotification('error', 'No se pudo eliminar la sucursal.');
     } finally {
       setIsLoading(false);
       closeDeleteConfirm();
@@ -129,12 +139,6 @@ export function BranchesPage() {
             />
           </label>
         </div>
-
-        {message && (
-          <div className="mt-6 rounded-xl border border-fuchsia-200 bg-fuchsia-50 px-4 py-3 text-sm text-fuchsia-700 dark:border-fuchsia-900/40 dark:bg-fuchsia-950/40 dark:text-fuchsia-100">
-            {message}
-          </div>
-        )}
 
         <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_380px] items-start">
           <section className="grid gap-4 sm:grid-cols-2">
@@ -231,44 +235,45 @@ export function BranchesPage() {
           </section>
         </div>
       </div>
-        <Modal
-          isOpen={confirmDeleteOpen}
-          onClose={closeDeleteConfirm}
-          title="Eliminar sucursal"
-          footer={
-            <>
-              <button
-                type="button"
-                onClick={closeDeleteConfirm}
-                disabled={isLoading}
-                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={isLoading}
-                className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Trash2 size={16} />
-                {isLoading ? 'Eliminando...' : 'Eliminar'}
-              </button>
-            </>
-          }
-        >
-          <div className="flex items-start gap-4">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300">
-              <AlertTriangle size={20} />
-            </div>
-            <div>
-              <p className="text-sm text-slate-700 dark:text-slate-300">
-                ¿Estás seguro de que deseas eliminar la sucursal <strong className="text-slate-900 dark:text-slate-100">{branchToDelete?.name}</strong>?
-              </p>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Esta acción no se puede deshacer.</p>
-            </div>
+      <Modal
+        isOpen={confirmDeleteOpen}
+        onClose={closeDeleteConfirm}
+        title="Eliminar sucursal"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={closeDeleteConfirm}
+              disabled={isLoading}
+              className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={isLoading}
+              className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Trash2 size={16} />
+              {isLoading ? 'Eliminando...' : 'Eliminar'}
+            </button>
+          </>
+        }
+      >
+        <div className="flex items-start gap-4">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300">
+            <AlertTriangle size={20} />
           </div>
-        </Modal>
-      </div>
+          <div>
+            <p className="text-sm text-slate-700 dark:text-slate-300">
+              ¿Estás seguro de que deseas eliminar la sucursal <strong className="text-slate-900 dark:text-slate-100">{branchToDelete?.name}</strong>?
+            </p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Esta acción no se puede deshacer.</p>
+          </div>
+        </div>
+      </Modal>
+      <ToastContainer notifications={notifications} onClose={removeNotification} />
+    </div>
   );
 }

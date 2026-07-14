@@ -39,6 +39,9 @@ export interface Group {
   branch_id: string;
   name: string;
   schedule: string;
+  instructor?: string | null;
+  capacity?: number | null;
+  level?: string | null;
   created_at: string;
 }
 

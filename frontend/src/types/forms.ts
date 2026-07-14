@@ -13,6 +13,10 @@ export interface CreateStudentForm {
   guardian_name?: string;
   guardian_phone?: string;
   notes?: string;
+  branch_id?: string;
+  group_id?: string;
+  monthly_fee?: number;
+  is_scholarship?: boolean;
 }
 
 export interface UpdateStudentForm extends Partial<CreateStudentForm> {
@@ -30,6 +34,9 @@ export interface CreateGroupForm {
   branch_id: string;
   name: string;
   schedule: string;
+  instructor?: string;
+  capacity?: number;
+  level?: string;
 }
 
 export interface UpdateGroupForm extends Partial<CreateGroupForm> {
@@ -41,6 +48,7 @@ export interface CreateEnrollmentForm {
   student_id: string;
   group_id: string;
   monthly_fee: number;
+  is_scholarship?: boolean;
 }
 
 export interface TransferStudentForm {

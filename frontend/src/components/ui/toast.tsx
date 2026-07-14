@@ -18,10 +18,10 @@ const Toast: React.FC<ToastProps> = ({ notification, onClose }) => {
   }, [notification, onClose]);
 
   const typeStyles = {
-    success: 'bg-green-500 dark:bg-green-600',
-    error: 'bg-red-500 dark:bg-red-600',
-    warning: 'bg-yellow-500 dark:bg-yellow-600',
-    info: 'bg-blue-500 dark:bg-blue-600',
+    success: 'bg-fuchsia-500/50 dark:bg-fuchsia-600/50',
+    error: 'bg-red-500/50 dark:bg-red-600/50',
+    warning: 'bg-amber-500/50 dark:bg-amber-600/50',
+    info: 'bg-slate-500/50 dark:bg-slate-600/50',
   };
 
   const typeIcons = {
@@ -33,14 +33,14 @@ const Toast: React.FC<ToastProps> = ({ notification, onClose }) => {
 
   return (
     <div className={cn(
-      'flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg text-white',
-      'animate-in fade-in slide-in-from-top-5',
+      'flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-white backdrop-blur-sm',
+      'animate-in fade-in slide-in-from-right',
       typeStyles[notification.type]
     )}>
       <span className="flex-shrink-0 font-bold">
         {typeIcons[notification.type]}
       </span>
-      <p className="flex-1">
+      <p className="flex-1 text-sm font-medium">
         {notification.message}
       </p>
       <button
@@ -63,7 +63,7 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({
   onClose,
 }) => {
   return (
-    <div className="fixed bottom-4 right-4 space-y-2 z-50 pointer-events-none">
+    <div className="fixed bottom-4 right-4 space-y-2 z-50 pointer-events-none max-w-sm">
       {notifications.map(notification => (
         <div key={notification.id} className="pointer-events-auto">
           <Toast notification={notification} onClose={onClose} />

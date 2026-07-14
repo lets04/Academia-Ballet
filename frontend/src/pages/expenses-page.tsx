@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import type { FormEvent } from 'react';
 import { Building2, Calendar, Plus, Receipt, Search, TrendingDown, Wallet } from 'lucide-react';
 import { useBranch } from '@/contexts/branch';
 import { expenseService } from '@/services/expense.service';
-import type { CreateExpenseForm, Expense } from '@/types';
+import { ToastContainer } from '@/components/ui/toast';
+import type { CreateExpenseForm, Expense, Notification } from '@/types';
 
 const today = new Date().toISOString().split('T')[0];
 const currentMonth = new Date().toISOString().slice(0, 7);
@@ -26,7 +27,16 @@ export function ExpensesPage() {
   const [month, setMonth] = useState(currentMonth);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  const addNotification = useCallback((type: Notification['type'], message: string) => {
+    const id = Date.now().toString();
+    setNotifications((prev) => [...prev, { id, type, message, duration: 4000 }]);
+  }, []);
+
+  const removeNotification = useCallback((id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  }, []);
 
   const branchNameById = useMemo(
     () => Object.fromEntries(branches.map((branch) => [branch.id, branch.name])),
@@ -40,7 +50,7 @@ export function ExpensesPage() {
       setExpenses(data);
     } catch (error) {
       console.error('Error loading expenses:', error);
-      setMessage('No se pudieron cargar los egresos.');
+      addNotification('error', 'No se pudieron cargar los egresos.');
     } finally {
       setIsLoading(false);
     }
@@ -66,11 +76,11 @@ export function ExpensesPage() {
         amount: Number(formData.amount),
       });
       setFormData({ ...initialForm, branch_id: selectedBranchId || branches[0]?.id || '' });
-      setMessage('Egreso registrado correctamente.');
+      addNotification('success', 'Egreso registrado correctamente.');
       await loadExpenses();
     } catch (error) {
       console.error('Error creating expense:', error);
-      setMessage('No se pudo registrar el egreso. Revisa los datos e intenta nuevamente.');
+      addNotification('error', 'No se pudo registrar el egreso. Revisa los datos e intenta nuevamente.');
     } finally {
       setIsLoading(false);
     }
@@ -117,12 +127,6 @@ export function ExpensesPage() {
             />
           </div>
         </div>
-
-        {message && (
-          <div className="mt-6 rounded-xl border border-fuchsia-200 bg-fuchsia-50 px-4 py-3 text-sm text-fuchsia-700 dark:border-fuchsia-900/40 dark:bg-fuchsia-950/40 dark:text-fuchsia-100">
-            {message}
-          </div>
-        )}
 
         <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_380px]">
           <section className="space-y-4">
@@ -225,6 +229,7 @@ export function ExpensesPage() {
           </section>
         </div>
       </div>
+      <ToastContainer notifications={notifications} onClose={removeNotification} />
     </div>
   );
 }

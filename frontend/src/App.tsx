@@ -5,7 +5,6 @@ import { StudentsPage } from '@/pages/students-page';
 import { GroupsPage } from '@/pages/groups-page';
 import { PaymentsPage } from '@/pages/payments-page';
 import { ExpensesPage } from '@/pages/expenses-page';
-import { EnrollmentsPage } from '@/pages/enrollments-page';
 import { BranchesPage } from '@/pages/branches-page';
 import { LoginPage } from '@/pages/login-page';
 import { ProtectedRoute } from '@/components/protected-route';
@@ -44,17 +43,6 @@ function App() {
             <ProtectedRoute>
               <DashboardLayout>
                 <GroupsPage />
-              </DashboardLayout>
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/enrollments"
-          element={
-            <ProtectedRoute>
-              <DashboardLayout>
-                <EnrollmentsPage />
               </DashboardLayout>
             </ProtectedRoute>
           }
